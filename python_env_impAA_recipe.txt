@@ -1,0 +1,59 @@
+Bootstrap: debootstrap
+OSVersion: xenial
+MirrorURL: http://us.archive.ubuntu.com/ubuntu/
+Include: apt
+
+%help
+	This container is built to run the python version 2.7 with multiple packages pre-installed for environments that cannot access internet/pip/easy-install/conda
+
+%post
+	echo "Installing all container dependencies!"
+	apt-get -y update
+	apt-get -y install wget
+	apt-get -y install software-properties-common
+	apt-add-repository universe
+	add-apt-repository ppa:deadsnakes/ppa	
+	apt-get -y update
+	apt-get -y install zlib1g-dev
+	apt-get -y install liblzo2-dev
+	apt-get -y install libnetcdf-dev netcdf-bin
+	apt-get -y install build-essential checkinstall
+	apt-get -y install libreadline-gplv2-dev libncursesw5-dev libssl-dev
+	apt-get -y install libssl-dev
+	apt-get -y install git-all
+	apt-get -y install python3.6 python3.6-dev python3.6-venv
+	wget https://bootstrap.pypa.io/get-pip.py
+	python3.6 get-pip.py
+	apt-get -y install python3-setuptools
+	pip3 -V
+	pip3 install readchar==0.1.0
+	pip3 install chunkypipes
+	pip3 install parsl
+	pip3 install pandas
+	pip3 install numpy
+	pip3 install matplotlib
+	pip3 install fpdf
+	pip3 install Pillow
+	pip3 install pypdf2
+	pip3 install statistics
+	pip3 install xlrd
+	pip3 install nose
+	pip3 install sympy
+	pip3 install scipy
+	pip3 install pysam
+	pip3 install bx-python
+	pip3 install nltk
+	pip3 install seaborn
+	pip3 install plotly
+	pip3 install scikit-learn
+	pip3 install git+https://github.com/djf604/operon@v0.1.8
+	apt-get clean
+
+%environment
+        export PYTHONPATH="${PYTHONPATH}:/mnt/"
+	export PATH="${PATH}:/mnt/"
+	export PATH="${PATH}:/usr/local/bin/"
+	export PYTHONPATH="${PYTHONPATH}:/usr/local/bin/:/usr/lib/python3/dist-packages"
+%runscript
+        exec "$@"
+
