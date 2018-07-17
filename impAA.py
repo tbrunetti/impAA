@@ -58,7 +58,9 @@ class Pipeline(ParslPipeline):
 
 	
 	def pipeline(self, pipeline_args, pipeline_config):
-		
+		import datetime
+		import logging
+
 		'''
 		TO DO: add try and except cases
 		'''
@@ -151,11 +153,13 @@ class Pipeline(ParslPipeline):
 					chunkDoseFilesIter.append(os.path.join(str(scratch),"chr{}.dose{}.vcf".format(str(chrm), i)))
 					#lineChunks is now a list of with x lines/elements (defined by chunks variable)
 					with open(os.path.join(str(scratch),"chr{}.dose{}.vcf".format(str(chrm), i)), 'w') as newDoseFile:
+						logger.info("Working on chunk number {} of {} in dose vcf files".format(str(i), str(totChunksExp)))
 						#for each list that was generated, it now writes a new file based on the chromosome id and
 						#enumerated chunk name
 						newDoseFile.write(open(doseHeader, 'r').read())
 						newDoseFile.writelines(lineChunks)
 						newDoseFile.flush()
+				logger.info("COMPLETED {} of {} dose variant files".format(str(totChunksExp), str(totChunksExp)))
 
 
 			# chunking of info files with header added
@@ -166,11 +170,14 @@ class Pipeline(ParslPipeline):
 					chunkInfoFilesIter.append(os.path.join(str(scratch),"chr{}.cut{}.info".format(str(chrm), i)))
 					#lineChunks is now a list of with x lines/elements (defined by chunks variable)
 					with open(os.path.join(str(scratch),"chr{}.cut{}.info".format(str(chrm), i)), 'w') as newInfoFile:
+						logger.info("Working on chunk number {} of {} in info files".format(str(i), str(totChunksExp)))
+
 						#for each list that was generated, it now writes a new file based on the chromosome id and
 						#enumerated chunk name
 						newInfoFile.write(open(infoHeader, 'r').read())
 						newInfoFile.writelines(lineChunks)
 						newInfoFile.flush()
+				logger.info("COMPLETED {} of {} info files".format(str(totChunksExp), str(totChunksExp)))
 		
 
 
@@ -192,7 +199,7 @@ class Pipeline(ParslPipeline):
 		## -----------------All code below this line is Software and CodeBlock registration and pipeline logic and flow------------------------
 		## ------------------------------------------No functions are defined below this line--------------------------------------------------
 
-		logging.basicConfig(filename=os.path.join(pipeline_args['logs_dir'], 'example_run.log'), level=logging.DEBUG)
+		logging.basicConfig(filename=os.path.join(pipeline_args['logs_dir'], 'impAA_run_{}.log'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M"))), level=logging.DEBUG)
 		all_chrm_chunks_futures = list()
 		'''
 		TO DO:  for loop through CodeBlock
