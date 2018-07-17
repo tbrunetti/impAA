@@ -63,15 +63,14 @@ class Pipeline(ParslPipeline):
 		TO DO: add try and except cases
 		'''
 
-		def prepFiles(impute_files, chrm, scratch, log):
+		def prepFiles(impute_files, chrm, scratch):
 			import re
 			import gzip
 			import itertools
 			import logging
-
-			logging.basicConfig(filename=os.path.join(log, 'prepFiles_chr{}.log'.format(str(chrm))), level=logging.DEBUG)
 			
-			logging.info('Prepping chr{} for header and variant extraction...'.format(str(chrm)))
+			logger = logging.getLogger("prepFiles.chr{}".format(str(chrm)))
+			logger.info('Prepping chr{} for header and variant extraction...'.format(str(chrm)))
 			## for chr{int}.dose.gz files ## OPTIONAL TO DO: RUN IN PARALLEL WITH .info.gz
 			doseLine = 0
 			doseHeader = open(os.path.join(str(scratch), 'doseHeader_chr{}'.format(str(chrm))), 'wb')
@@ -80,10 +79,10 @@ class Pipeline(ParslPipeline):
 			with gzip.open(os.path.join(impute_files, "chr{}.dose.vcf.gz".format(str(chrm)))) as getDoseHeader:
 				for line in enumerate(getDoseHeader):
 					if re.search(b'^#', line[1]):
-						logging.info('Working...on dosage header extraction')
+						logger.info('Working...on dosage header extraction')
 						doseHeader.write(line[1])
 					else:
-						logging.info('Dosage file header extraction 100% complete!' + '\n' + 'Now extracting dose variants...')
+						logger.info('Dosage file header extraction 100% complete!' + '\n' + 'Now extracting dose variants...')
 						doseLine = line[0]
 						doseHeader.flush()
 						break
@@ -92,7 +91,7 @@ class Pipeline(ParslPipeline):
 				doseVariants.writelines(list(itertools.islice(getDoseVars, doseLine, None)))
 				doseVariants.flush()
 			
-			logging.info('Dosage file header and variant extraction 100% complete')
+			logger.info('Dosage file header and variant extraction 100% complete')
 
 			## for chr{int}.info.gz files ## OPTIONAL TO DO: RUN IN PARALLEL WITH .dose.gz
 
@@ -103,10 +102,10 @@ class Pipeline(ParslPipeline):
 			with gzip.open(os.path.join(impute_files, "chr{}.info.gz".format(str(chrm)))) as getInfoHeader:
 				for line in enumerate(getInfoHeader):
 					if re.search(b'^SNP', line[1]):
-						logging.info('Working...on info file header extraction')
+						logger.info('Working...on info file header extraction')
 						infoHeader.write(line[1])
 					else:
-						logging.info('Info file header extraction 100% complete!' + '\n' + 'Now extracting info variants...')
+						logger.info('Info file header extraction 100% complete!' + '\n' + 'Now extracting info variants...')
 						infoLine = line[0]
 						infoHeader.flush()
 						break
@@ -115,23 +114,22 @@ class Pipeline(ParslPipeline):
 				infoVariants.writelines(list(itertools.islice(getInfoVars, infoLine, None)))
 				infoVariants.flush()
 
-			logging.info('Info file header and variant extraction 100% complete')
-			logging.shutdown()
-
+			logger.info('Info file header and variant extraction 100% complete')
 
 
 		'''
 		TO DO: add try and except cases
 			   add logging and debugging 
 		'''
-		def chunkFiles(doseHeader, infoHeader, doseVars, infoVars, chrm, chunks, scratch, log):
+		def chunkFiles(doseHeader, infoHeader, doseVars, infoVars, chrm, chunks, scratch):
 			import re
 			import gzip
 			import itertools
 			import math
 			import logging
 
-			logging.basicConfig(filename=os.path.join(log, 'chunkFiles_chr{}.log'.format(str(chrm))), level=logging.DEBUG)
+
+			logger=logging.getLogger("chunkFiles.chr{}".format(str(chrm)))
 
 			chunkDoseFiles = open(os.path.join(str(scratch), 'chr{}_dose_file_chunks.txt'.format(str(chrm))), 'w')
 			chunkInfoFiles = open(os.path.join(str(scratch), 'chr{}_info_file_chunks.txt'.format(str(chrm))), 'w')
@@ -142,7 +140,7 @@ class Pipeline(ParslPipeline):
 			with open(os.path.join(pipeline_args['tempPath'], 'doseVars_chr{}'.format(str(chrm)))) as f: lines = sum(1 for line in f)
 			# number of files expected to be generated
 			totChunksExp = math.ceil(lines/int(pipeline_args['chunks']))
-			logging.info("Chunking files on chr{}..total expected file chunks are {}".format(str(chrm), str(totChunksExp)))
+			logger.info("Chunking files on chr{}..total expected file chunks are {}".format(str(chrm), str(totChunksExp)))
 	
 
 			# chunking of dose files with header added
@@ -182,19 +180,19 @@ class Pipeline(ParslPipeline):
 			chunkInfoFiles.write('\n'.join(chunkInfoFilesIter))	
 			chunkInfoFiles.flush()
 			chunkInfoFiles.close()	
-
-			logging.shutdown()
 					
 	
 		def logicValidation():
+			import logging
 			print('func: logicValidation() Everything is finished!')
+			logging.shutdown()
 
 
 
 		## -----------------All code below this line is Software and CodeBlock registration and pipeline logic and flow------------------------
 		## ------------------------------------------No functions are defined below this line--------------------------------------------------
 
-
+		logging.basicConfig(filename=os.path.join(pipeline_args['logs_dir'], 'example_run.log'), level=logging.DEBUG)
 		all_chrm_chunks_futures = list()
 		'''
 		TO DO:  for loop through CodeBlock
@@ -206,8 +204,7 @@ class Pipeline(ParslPipeline):
 				kwargs={
 					'impute_files':pipeline_config['imputed_files']['path'],
 					'chrm':str(chrm),
-					'scratch':pipeline_args['tempPath'],
-					'log':pipeline_args['logs_dir']
+					'scratch':pipeline_args['tempPath']
 					},
 				outputs=[
 						Data(os.path.join(pipeline_args['tempPath'], 'doseHeader_chr{}'.format(str(chrm)))).as_output(),
@@ -233,8 +230,7 @@ class Pipeline(ParslPipeline):
 					'infoVars':os.path.join(pipeline_args['tempPath'], 'infoVars_chr{}'.format(str(chrm))),
 					'chrm':str(chrm),
 					'chunks':pipeline_args['chunks'],
-					'scratch':pipeline_args['tempPath'],
-					'log':pipeline_args['logs_dir']
+					'scratch':pipeline_args['tempPath']
 					},
 				inputs=[
 					Data(os.path.join(pipeline_args['tempPath'], 'doseHeader_chr{}'.format(str(chrm)))).as_input(),
@@ -254,4 +250,3 @@ class Pipeline(ParslPipeline):
 			func=logicValidation,
 			wait_on=all_chrm_chunks_futures
 			)
-	
