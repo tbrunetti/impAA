@@ -37,9 +37,6 @@ class Pipeline(ParslPipeline):
 				'path': 'Full path of R exectuable version to be used',
 				'lib': 'Full path to directory of R libraries'
 			},
-			'imputed_files':{
-				'path': 'Full path to directory of .dose.vcf.gz and .info.gz files from imputation'
-			},
 			'dosageConverter':{
 				'path': 'Full path of dosageConverter exectuable to be used'
 			}
@@ -47,6 +44,7 @@ class Pipeline(ParslPipeline):
 
 
 	def arguments(self, parser):
+			parser.add_argument('--imputeFiles', type=str, required=True, help="Full path to directory of all .dose.vcf.gz and .info.gz files from imputation")
 			parser.add_argument('--outdir', help='Path to output directory')
 			parser.add_argument('--prefix', type=str, help='Data name or prefix')
 			parser.add_argument('--model', type=str, default='logistic', help='logistic or guassian')
@@ -209,7 +207,7 @@ class Pipeline(ParslPipeline):
 			CodeBlock.register(
 				func=prepFiles,
 				kwargs={
-					'impute_files':pipeline_config['imputed_files']['path'],
+					'impute_files':pipeline_args['imputeFiles'],
 					'chrm':str(chrm),
 					'scratch':pipeline_args['tempPath']
 					},
