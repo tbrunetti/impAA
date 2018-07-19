@@ -34,17 +34,17 @@ class Pipeline(ParslPipeline):
 	def configuration(self):
 		return {
 			'R': {
-				'path': 'Full path of R exectuable version to be used',
-				'lib': 'Full path to directory of R libraries'
+				'path': 'Full path of R exectuable version to be used Ex: /path/to/R',
+				'lib': 'Full path to directory of R libraries Ex: /path/to/Rlibs/directory/'
 			},
 			'dosageConverter':{
-				'path': 'Full path of dosageConverter exectuable to be used'
+				'path': 'Full path of dosageConverter exectuable to be used Ex:/path/to/dosageConverter'
 			}
 		}
 
 
 	def arguments(self, parser):
-			parser.add_argument('--imputeFiles', type=str, required=True, help="Full path to directory of all .dose.vcf.gz and .info.gz files from imputation")
+			parser.add_argument('-imputeFiles', type=str, required=True, help="Full path to directory of all .dose.vcf.gz and .info.gz files from imputation")
 			parser.add_argument('--outdir', help='Path to output directory')
 			parser.add_argument('--prefix', type=str, help='Data name or prefix')
 			parser.add_argument('--model', type=str, default='logistic', help='logistic or guassian')
@@ -52,6 +52,9 @@ class Pipeline(ParslPipeline):
 			parser.add_argument('--maf', type=float, default=0.05, help='Minor allele frequency cut-off for common and rare variants. Ex: --maf 0.05 translates to common>=0.05>rare')
 			parser.add_argument('--chunks', type=int, default=100000, help='number of lines to split/chunk variants of vcf for processing')
 			parser.add_argument('--tempPath', type=str, default=os.getcwd(), help='full path to exisiting directory to store temp files, i.e. scratch space')
+			parser.add_argument('--convertType', type=str, default='mach', help='Options: plink or mach, default: mach; dosageConverter output format')
+			parser.add_argument('--convertCalc', type=str, default='1', help='Options for mach: 1 or 2, default: 1; dosageConverter output to be dosage calculation (1) or genotype probability calculation (2)\
+																			  Options for plink: 1, 2, or 3, default: 1; 1, 2, and 3 for plink refer to dosage parameter in plink options 1, 2, and 3')
 			# same format as chunky
 
 	
@@ -133,7 +136,8 @@ class Pipeline(ParslPipeline):
 
 			chunkDoseFiles = open(os.path.join(str(scratch), 'chr{}_dose_file_chunks.txt'.format(str(chrm))), 'w')
 			chunkInfoFiles = open(os.path.join(str(scratch), 'chr{}_info_file_chunks.txt'.format(str(chrm))), 'w')
-
+			totalChunks = open(os.path.join(str(scratch), 'chr{}_total_chunks.txt'.format(str(chrm))), 'w')
+			
 			chunkDoseFilesIter = list()
 			chunkInfoFilesIter = list()
 
@@ -176,7 +180,7 @@ class Pipeline(ParslPipeline):
 						newInfoFile.writelines(lineChunks)
 						newInfoFile.flush()
 				logger.info("COMPLETED {} of {} info files".format(str(totChunksExp), str(totChunksExp)))
-		
+				
 
 
 			chunkDoseFiles.write('\n'.join(chunkDoseFilesIter))
@@ -185,8 +189,49 @@ class Pipeline(ParslPipeline):
 			chunkInfoFiles.write('\n'.join(chunkInfoFilesIter))	
 			chunkInfoFiles.flush()
 			chunkInfoFiles.close()	
-					
+			totalChunks.write(str(totChunksExp))
+			totalChunks.flush()
+			totalChunks.close()
 	
+		
+		def dosage(totalChunks, chrm, scratch, dosageConverter, convertType, convertFormat):
+			import logging
+			import subprocess
+			
+			logger=logging.getLogger("dosage.chr{}".format(str(chrm)))
+
+			# TO DO: throw error if file is empty or is not an int
+			logger.info('Getting total chunks')
+			with open(totalChunks, 'r') as allFiles: allChunks = int(allFiles.readline()) + 1
+
+			allProcesses = []
+			
+			# TO DO: throw error if file does not exist
+			for chunk in range(1, allChunks):
+				logger.info('Working on chr{} chunk {} out of {}'.format(str(chrm), str(chunk), str(allChunks-1)))
+				allProcesses.append(
+					subprocess.Popen([
+						dosageConverter, 
+						'--vcfDose', os.path.join(str(scratch),'chr{}.dose{}.vcf'.format(str(chrm), str(chunk))),
+						'--info', os.path.join(str(scratch),'chr{}.cut{}.info'.format(str(chrm), str(chunk))),
+						'--prefix', os.path.join(str(scratch),'chr{}.cut{}'.format(str(chrm), str(chunk))),
+						'--type', str(convertType),
+						'--format', str(convertFormat)
+						]
+					)
+				)
+				logger.info('Submitted job chunk {}'.format(str(chunk)))
+
+
+			for jobs in allProcesses:
+				logger.info("Waiting...Processing {}".format(jobs))
+				jobs.wait()
+
+			logger.info('chr{} is finished!'.format(str(chrm)))
+
+
+
+
 		def logicValidation():
 			import logging
 			print('func: logicValidation() Everything is finished!')
@@ -194,14 +239,19 @@ class Pipeline(ParslPipeline):
 
 
 
+
 		## -----------------All code below this line is Software and CodeBlock registration and pipeline logic and flow------------------------
 		## ------------------------------------------No functions are defined below this line--------------------------------------------------
 
+		
+		dosageConverter = Software(name='dosageConverter')
+
 		logging.basicConfig(filename=os.path.join(pipeline_args['logs_dir'], 'impAA_run_{}.log'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M"))), level=logging.DEBUG)
 		all_chrm_chunks_futures = list()
+		dosage_futures = list()
+
 		'''
-		TO DO:  for loop through CodeBlock
-				add proper outputs as Data() object
+		TO DO:  for loop through CodeBlock all autosomes
 		'''
 		for chrm in range(21, 23):
 			CodeBlock.register(
@@ -221,12 +271,11 @@ class Pipeline(ParslPipeline):
 
 		
 		'''
-		TO DO:  for loop through CodeBlock
+		TO DO:  for loop through CodeBlock all autosomes
 		'''
 
 		for chrm in range(21, 23):
-
-			all_chrm_chunks_futures.append(CodeBlock.register(
+			CodeBlock.register(
 				func=chunkFiles,
 				kwargs={
 					'doseHeader':os.path.join(pipeline_args['tempPath'], 'doseHeader_chr{}'.format(str(chrm))), 
@@ -236,16 +285,44 @@ class Pipeline(ParslPipeline):
 					'chrm':str(chrm),
 					'chunks':pipeline_args['chunks'],
 					'scratch':pipeline_args['tempPath']
-					},
+				},
 				inputs=[
 					Data(os.path.join(pipeline_args['tempPath'], 'doseHeader_chr{}'.format(str(chrm)))).as_input(),
 					Data(os.path.join(pipeline_args['tempPath'], 'doseVars_chr{}'.format(str(chrm)))).as_input(),
 					Data(os.path.join(pipeline_args['tempPath'], 'infoHeader_chr{}'.format(str(chrm)))).as_input(),
 					Data(os.path.join(pipeline_args['tempPath'], 'infoVars_chr{}'.format(str(chrm)))).as_input()
-					],
+				],
 				outputs=[
 					Data(os.path.join(pipeline_args['tempPath'], 'chr{}_dose_file_chunks.txt'.format(str(chrm)))).as_output(),
-					Data(os.path.join(pipeline_args['tempPath'], 'chr{}_info_file_chunks.txt'.format(str(chrm)))).as_output()
+					Data(os.path.join(pipeline_args['tempPath'], 'chr{}_info_file_chunks.txt'.format(str(chrm)))).as_output(),
+					Data(os.path.join(pipeline_args['tempPath'], 'chr{}_total_chunks.txt'.format(str(chrm)))).as_output()
+				]
+			)
+
+
+
+		'''
+		TO DO:  for loop through CodeBlock all autosomes
+				fill out outputs=[]
+				needs testing
+		'''
+
+		for chrm in range(21, 23):
+			dosage_futures.append(
+				CodeBlock.register(
+					func=dosage,
+					kwargs={
+						'totalChunks':os.path.join(pipeline_args['tempPath'], 'chr{}_total_chunks.txt'.format(str(chrm))),
+						'chrm':str(chrm), 
+						'scratch':pipeline_args['tempPath'],
+						'dosageConverter':pipeline_config['dosageConverter']['path'],
+						'convertType':pipeline_args['convertType'],
+						'convertFormat':pipeline_args['convertCalc']
+					},
+					inputs=[
+						Data(os.path.join(pipeline_args['tempPath'], 'chr{}_dose_file_chunks.txt'.format(str(chrm)))).as_input(),
+						Data(os.path.join(pipeline_args['tempPath'], 'chr{}_info_file_chunks.txt'.format(str(chrm)))).as_input(),
+						Data(os.path.join(pipeline_args['tempPath'], 'chr{}_total_chunks.txt'.format(str(chrm)))).as_input()
 					]
 				)
 			)
@@ -253,5 +330,7 @@ class Pipeline(ParslPipeline):
 
 		CodeBlock.register(
 			func=logicValidation,
-			wait_on=all_chrm_chunks_futures
+			wait_on=dosage_futures
 			)
+
+	
