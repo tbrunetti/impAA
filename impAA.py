@@ -45,17 +45,23 @@ class Pipeline(ParslPipeline):
 
 	def arguments(self, parser):
 			parser.add_argument('-imputeFiles', type=str, required=True, help="Full path to directory of all .dose.vcf.gz and .info.gz files from imputation")
-			parser.add_argument('--outdir', help='Path to output directory')
-			parser.add_argument('--prefix', type=str, help='Data name or prefix')
-			parser.add_argument('--model', type=str, default='logistic', help='logistic or guassian')
-			parser.add_argument('--mac', type=int, default=6, help='Minimum minor allele count for filtering out SNPs for qq and manahattan plots. Ex: --mac 6 translates to keeping SNPs with MAC>6 in order to be considered MAC filtered/cleaned')
-			parser.add_argument('--maf', type=float, default=0.05, help='Minor allele frequency cut-off for common and rare variants. Ex: --maf 0.05 translates to common>=0.05>rare')
-			parser.add_argument('--chunks', type=int, default=100000, help='number of lines to split/chunk variants of vcf for processing')
-			parser.add_argument('--tempPath', type=str, default=os.getcwd(), help='full path to exisiting directory to store temp files, i.e. scratch space')
-			parser.add_argument('--convertType', type=str, default='mach', help='Options: plink or mach, default: mach; dosageConverter output format')
-			parser.add_argument('--convertCalc', type=str, default='1', help='Options for mach: 1 or 2, default: 1; dosageConverter output to be dosage calculation (1) or genotype probability calculation (2)\
+			parser.add_argument('-outdir', help='Path to output directory')
+			parser.add_argument('-prefix', type=str, help='Data name or prefix')
+			parser.add_argument('-model', type=str, default='logistic', help='logistic or guassian')
+			parser.add_argument('-mac', type=int, default=6, help='Minimum minor allele count for filtering out SNPs for qq and manahattan plots. Ex: --mac 6 translates to keeping SNPs with MAC>6 in order to be considered MAC filtered/cleaned')
+			parser.add_argument('-maf', type=float, default=0.05, help='Minor allele frequency cut-off for common and rare variants. Ex: --maf 0.05 translates to common>=0.05>rare')
+			parser.add_argument('-chunks', type=int, default=100000, help='number of lines to split/chunk variants of vcf for processing')
+			parser.add_argument('-tempPath', type=str, default=os.getcwd(), help='full path to exisiting directory to store temp files, i.e. scratch space')
+			parser.add_argument('-convertType', type=str, default='mach', help='Options: plink or mach, default: mach; dosageConverter output format')
+			parser.add_argument('-convertCalc', type=str, default='1', help='Options for mach: 1 or 2, default: 1; dosageConverter output to be dosage calculation (1) or genotype probability calculation (2)\
 																			  Options for plink: 1, 2, or 3, default: 1; 1, 2, and 3 for plink refer to dosage parameter in plink options 1, 2, and 3')
-			# same format as chunky
+			parser.add_argument('--generatePCs', type='store_true', help='Use this flag if you also need GENESIS to generate a PC table')
+			
+			'''
+			TO DO:  implement dosageBuffer argument in dosage CodeBlock.register()
+					address generatePCs flag and implement
+			'''
+			parser.add_argument('--dosageBuffer', type=int, default=10000, help='INT, dosageConveter argument - Number of markers to import and print at a time (valid only of MaCH format)' )
 
 	
 	def pipeline(self, pipeline_args, pipeline_config):
@@ -227,6 +233,10 @@ class Pipeline(ParslPipeline):
 				logger.info("Waiting...Processing {}".format(jobs))
 				jobs.wait()
 
+			'''
+			TO DO: gunzip all finished mach file
+			'''	
+
 			logger.info('chr{} is finished!'.format(str(chrm)))
 
 
@@ -244,8 +254,6 @@ class Pipeline(ParslPipeline):
 		## ------------------------------------------No functions are defined below this line--------------------------------------------------
 
 		
-		dosageConverter = Software(name='dosageConverter')
-
 		logging.basicConfig(filename=os.path.join(pipeline_args['logs_dir'], 'impAA_run_{}.log'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H:%M"))), level=logging.DEBUG)
 		all_chrm_chunks_futures = list()
 		dosage_futures = list()
@@ -303,8 +311,9 @@ class Pipeline(ParslPipeline):
 
 		'''
 		TO DO:  for loop through CodeBlock all autosomes
-				fill out outputs=[]
-				needs testing
+				fill out outputs=[] -- text file of all dosage files?
+				needs testing -- initial test worked
+				see if can modify DosageConverter source to not gzip files
 		'''
 
 		for chrm in range(21, 23):
@@ -327,6 +336,8 @@ class Pipeline(ParslPipeline):
 				)
 			)
 
+
+		
 
 		CodeBlock.register(
 			func=logicValidation,
