@@ -1,0 +1,64 @@
+{
+"sites":[{
+	"site": "prepFiles",
+	"auth": {
+		"channel": "local",
+		"username": "brunettt",
+		"scriptDir": ## TO DO ##
+	},
+	"execution": {
+		"executor": "ipp",
+		"provider": "slurm",
+		"block":{
+			"nodes": 1,
+			"taskBlocks": 1,
+			"initBlocks": 1,
+			"maxBlocks": 10,
+			"minBlocks": 1,
+			"walltime": "5:00:00",
+			"options": {"partition": "defq", "overrides": "#SBATCH --account=TICR-${USER}\n#SBATCH --mem 50GB\n#SBATCH --ntasks=10"}
+		}
+	}
+}, {
+	"site": "chunkFiles",
+	"auth": {
+		"channel": "local",
+		"username": "brunettt",
+		"scriptDir": ## TO DO ##
+	},
+	"execution":{
+		"executor": "ipp",
+		"provider": "slurm",
+		"block":{
+			"nodes": 1,
+			"taskBlocks": 1,
+			"initBlocks": 1,
+			"maxBlocks": 10,
+			"minBlocks": 1,
+			"walltime": "5:00:00",
+			"options": {"partition": "defq", "overrides": "#SBATCH --account=TICR-${USER}\n#SBATCH --mem 50GB\n#SBATCH --ntasks=10"}
+		}
+	}
+}, {
+	"site": "dosage",
+	"auth": {
+		"channel": "local",
+		"username": "brunettt",
+		"scriptDir": ## TO DO ##
+	},
+	"execution":{
+		"executor": "ipp",
+		"provider": "slurm",
+		"block":{
+			"nodes": 1,
+			"taskBlocks": 1,
+			"initBlocks": 1,
+			"maxBlocks": 10,
+			"minBlocks": 1,
+			"walltime": "5:00:00",
+			"options": {"partition": "defq", "overrides": "SBATCH --account=TICR=${USER}\n#SBATCH --mem50GB\n#SBATCH --ntasks=10"}
+		}
+	}
+	}],
+	"globals": {"lazyErrors": true, "retries": 3}
+}
